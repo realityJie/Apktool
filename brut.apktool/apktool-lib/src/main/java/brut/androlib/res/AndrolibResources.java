@@ -1,18 +1,18 @@
 /**
- *  Copyright (C) 2019 Ryszard Wiśniewski <brut.alll@gmail.com>
- *  Copyright (C) 2019 Connor Tumbleson <connor.tumbleson@gmail.com>
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *       http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Copyright (C) 2019 Ryszard Wiśniewski <brut.alll@gmail.com>
+ * Copyright (C) 2019 Connor Tumbleson <connor.tumbleson@gmail.com>
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package brut.androlib.res;
 
@@ -33,6 +33,7 @@ import brut.androlib.res.xml.ResValuesXmlSerializable;
 import brut.androlib.res.xml.ResXmlPatcher;
 import brut.common.BrutException;
 import brut.util.*;
+
 import org.apache.commons.io.IOUtils;
 import org.xmlpull.v1.XmlSerializer;
 
@@ -103,7 +104,7 @@ final public class AndrolibResources {
 
         for (int i = 0; i < pkgs.length; i++) {
             ResPackage resPackage = pkgs[i];
-            if (resPackage.getResSpecCount() > value && ! resPackage.getName().equalsIgnoreCase("android")) {
+            if (resPackage.getResSpecCount() > value && !resPackage.getName().equalsIgnoreCase("android")) {
                 value = resPackage.getResSpecCount();
                 id = resPackage.getId();
                 index = i;
@@ -397,7 +398,7 @@ final public class AndrolibResources {
         cmd.add("-o");
         cmd.add(apkFile.getAbsolutePath());
 
-        if (mPackageId != null && ! mSharedLibrary) {
+        if (mPackageId != null && !mSharedLibrary) {
             cmd.add("--package-id");
             cmd.add(mPackageId);
         }
@@ -523,7 +524,7 @@ final public class AndrolibResources {
         }
         // force package id so that some frameworks build with correct id
         // disable if user adds own aapt (can't know if they have this feature)
-        if (mPackageId != null && ! customAapt && ! mSharedLibrary) {
+        if (mPackageId != null && !customAapt && !mSharedLibrary) {
             cmd.add("--forced-package-id");
             cmd.add(mPackageId);
         }
@@ -679,7 +680,7 @@ final public class AndrolibResources {
     public boolean detectWhetherAppIsFramework(File appDir)
             throws AndrolibException {
         File publicXml = new File(appDir, "res/values/public.xml");
-        if (! publicXml.exists()) {
+        if (!publicXml.exists()) {
             return false;
         }
 
@@ -713,7 +714,7 @@ final public class AndrolibResources {
 
         AXmlResourceParser axmlParser = new AXmlResourceParser();
 
-        decoders.setDecoder("xml", new XmlPullStreamDecoder(axmlParser,getResXmlSerializer()));
+        decoders.setDecoder("xml", new XmlPullStreamDecoder(axmlParser, getResXmlSerializer()));
 
         return new Duo<ResFileDecoder, AXmlResourceParser>(new ResFileDecoder(decoders), axmlParser);
     }
@@ -761,6 +762,9 @@ final public class AndrolibResources {
             serial.startTag(null, "resources");
 
             for (ResResSpec spec : pkg.listResSpecs()) {
+                if (spec.getName().contains("$")) {
+                    continue;
+                }
                 serial.startTag(null, "public");
                 serial.attribute(null, "type", spec.getType().getName());
                 serial.attribute(null, "name", spec.getName());
@@ -777,7 +781,7 @@ final public class AndrolibResources {
         }
     }
 
-    private ResPackage[] getResPackagesFromApk(ExtFile apkFile,ResTable resTable, boolean keepBroken)
+    private ResPackage[] getResPackagesFromApk(ExtFile apkFile, ResTable resTable, boolean keepBroken)
             throws AndrolibException {
         try {
             Directory dir = apkFile.getDirectory();
@@ -787,7 +791,8 @@ final public class AndrolibResources {
             } finally {
                 try {
                     bfi.close();
-                } catch (IOException ignored) {}
+                } catch (IOException ignored) {
+                }
             }
         } catch (DirectoryException ex) {
             throw new AndrolibException("Could not load resources.arsc from file: " + apkFile, ex);
@@ -830,11 +835,11 @@ final public class AndrolibResources {
 
         apk = new File(dir, "1.apk");
 
-        if (! apk.exists()) {
+        if (!apk.exists()) {
             LOGGER.warning("Can't empty framework directory, no file found at: " + apk.getAbsolutePath());
         } else {
             try {
-                if (apk.exists() && dir.listFiles().length > 1 && ! apkOptions.forceDeleteFramework) {
+                if (apk.exists() && dir.listFiles().length > 1 && !apkOptions.forceDeleteFramework) {
                     LOGGER.warning("More than default framework detected. Please run command with `--force` parameter to wipe framework directory.");
                 } else {
                     for (File file : dir.listFiles()) {
@@ -887,7 +892,7 @@ final public class AndrolibResources {
             out.putNextEntry(entry);
             out.write(data);
             out.closeEntry();
-            
+
             //Write fake AndroidManifest.xml file to support original aapt
             entry = zip.getEntry("AndroidManifest.xml");
             if (entry != null) {
@@ -916,12 +921,12 @@ final public class AndrolibResources {
     public void publicizeResources(File arscFile) throws AndrolibException {
         byte[] data = new byte[(int) arscFile.length()];
 
-        try(InputStream in = new FileInputStream(arscFile);
-            OutputStream out = new FileOutputStream(arscFile)) {
+        try (InputStream in = new FileInputStream(arscFile);
+             OutputStream out = new FileOutputStream(arscFile)) {
             in.read(data);
             publicizeResources(data);
             out.write(data);
-        } catch (IOException ex){
+        } catch (IOException ex) {
             throw new AndrolibException(ex);
         }
     }
@@ -974,8 +979,8 @@ final public class AndrolibResources {
             throw new AndrolibException("Please remove file at " + dir.getParentFile());
         }
 
-        if (! dir.exists()) {
-            if (! dir.mkdirs()) {
+        if (!dir.exists()) {
+            if (!dir.mkdirs()) {
                 if (apkOptions.frameworkFolderLocation != null) {
                     LOGGER.severe("Can't create Framework directory: " + dir);
                 }
@@ -984,7 +989,7 @@ final public class AndrolibResources {
         }
 
         if (apkOptions.frameworkFolderLocation == null) {
-            if (! dir.canWrite()) {
+            if (!dir.canWrite()) {
                 LOGGER.severe(String.format("WARNING: Could not write to (%1$s), using %2$s instead...",
                         dir.getAbsolutePath(), System.getProperty("java.io.tmpdir")));
                 LOGGER.severe("Please be aware this is a volatile directory and frameworks could go missing, " +
@@ -1049,7 +1054,7 @@ final public class AndrolibResources {
     private boolean mSharedLibrary = false;
     private boolean mSparseResources = false;
 
-    private final static String[] IGNORED_PACKAGES = new String[] {
+    private final static String[] IGNORED_PACKAGES = new String[]{
             "android", "com.htc", "com.lge", "com.lge.internal", "yi", "flyme", "air.com.adobe.appentry",
-            "FFFFFFFFFFFFFFFFFFFFFF" };
+            "FFFFFFFFFFFFFFFFFFFFFF"};
 }
