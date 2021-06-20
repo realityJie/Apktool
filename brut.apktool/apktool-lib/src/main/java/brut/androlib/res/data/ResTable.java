@@ -17,15 +17,12 @@
 package brut.androlib.res.data;
 
 import brut.androlib.AndrolibException;
-import brut.androlib.err.UndefinedResObject;
+import brut.androlib.err.UndefinedResObjectException;
 import brut.androlib.meta.VersionInfo;
 import brut.androlib.res.AndrolibResources;
 import brut.androlib.res.data.value.ResValue;
 import java.util.*;
 
-/**
- * @author Ryszard Wiśniewski <brut.alll@gmail.com>
- */
 public class ResTable {
     private final AndrolibResources mAndRes;
 
@@ -83,7 +80,7 @@ public class ResTable {
         if (mAndRes != null) {
             return mAndRes.loadFrameworkPkg(this, id, mAndRes.apkOptions.frameworkTag);
         }
-        throw new UndefinedResObject(String.format("package: id=%d", id));
+        throw new UndefinedResObjectException(String.format("package: id=%d", id));
     }
 
     public ResPackage getHighestSpecPackage() throws AndrolibException {
@@ -115,17 +112,9 @@ public class ResTable {
     public ResPackage getPackage(String name) throws AndrolibException {
         ResPackage pkg = mPackagesByName.get(name);
         if (pkg == null) {
-            throw new UndefinedResObject("package: name=" + name);
+            throw new UndefinedResObjectException("package: name=" + name);
         }
         return pkg;
-    }
-
-    public boolean hasPackage(int id) {
-        return mPackagesById.containsKey(id);
-    }
-
-    public boolean hasPackage(String name) {
-        return mPackagesByName.containsKey(name);
     }
 
     public ResValue getValue(String package_, String type, String name) throws AndrolibException {

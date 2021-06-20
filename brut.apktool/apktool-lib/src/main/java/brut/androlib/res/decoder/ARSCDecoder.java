@@ -17,23 +17,25 @@
 package brut.androlib.res.decoder;
 
 import android.util.TypedValue;
-import brut.androlib.Androlib;
 import brut.androlib.AndrolibException;
 import brut.androlib.res.data.*;
 import brut.androlib.res.data.value.*;
 import brut.util.Duo;
-import brut.androlib.res.data.ResTable;
 import brut.util.ExtDataInput;
 import com.google.common.io.LittleEndianDataInputStream;
-import java.io.*;
-import java.math.BigInteger;
-import java.util.*;
-import java.util.logging.Logger;
 import org.apache.commons.io.input.CountingInputStream;
 
-/**
- * @author Ryszard Wiśniewski <brut.alll@gmail.com>
- */
+import java.io.DataInput;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.logging.Logger;
+
 public class ARSCDecoder {
     public static ARSCData decode(InputStream arscStream, boolean findFlagsOffsets, boolean keepBroken)
             throws AndrolibException {
@@ -123,12 +125,19 @@ public class ARSCDecoder {
         mPkg = new ResPackage(mResTable, id, name);
 
         nextChunk();
-        while (mHeader.type == Header.TYPE_LIBRARY) {
-            readLibraryType();
-        }
-
-        while (mHeader.type == Header.TYPE_SPEC_TYPE) {
-            readTableTypeSpec();
+        boolean flag = true;
+        while (flag) {
+            switch (mHeader.type) {
+                case Header.TYPE_LIBRARY:
+                    readLibraryType();
+                    break;
+                case Header.TYPE_SPEC_TYPE:
+                    readTableTypeSpec();
+                    break;
+                default:
+                    flag = false;
+                    break;
+            }
         }
 
         return mPkg;
@@ -323,7 +332,6 @@ public class ARSCDecoder {
                 throw ex;
             }
         }
-        mPkg.addResource(res);
     }
 
     private ResBagValue readComplexEntry() throws IOException, AndrolibException {
@@ -464,7 +472,7 @@ public class ARSCDecoder {
                 colorMode, isInvalid, size);
     }
 
-    private char[] unpackLanguageOrRegion(byte in0, byte in1, char base) throws AndrolibException {
+    private char[] unpackLanguageOrRegion(byte in0, byte in1, char base) {
         // check high bit, if so we have a packed 3 letter code
         if (((in0 >> 7) & 1) == 1) {
             int first = in1 & 0x1F;
@@ -478,7 +486,7 @@ public class ARSCDecoder {
         return new char[] { (char) in0, (char) in1 };
     }
 
-    private String readScriptOrVariantChar(int length) throws AndrolibException, IOException {
+    private String readScriptOrVariantChar(int length) throws IOException {
         StringBuilder string = new StringBuilder(16);
 
         while(length-- != 0) {
@@ -516,10 +524,11 @@ public class ARSCDecoder {
                     mType = mPkg.getOrCreateConfig(new ResConfigFlags());
                 }
 
-                ResValue value = new ResBoolValue(false, 0, null);
-                ResResource res = new ResResource(mType, spec, value);
+                // We are going to make dummy attributes a null reference (@null) now instead of a boolean false.
+                // This is because aapt2 is much more strict when it comes to what we can put in an application.
+                ResValue value = new ResReferenceValue(mPkg, 0, "");
 
-                mPkg.addResource(res);
+                ResResource res = new ResResource(mType, spec, value);
                 mType.addResource(res);
                 spec.addResource(res);
             }

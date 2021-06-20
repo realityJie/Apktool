@@ -17,20 +17,16 @@
 package brut.androlib.res.decoder;
 
 import brut.androlib.AndrolibException;
-import brut.androlib.err.CantFind9PatchChunk;
+import brut.androlib.err.CantFind9PatchChunkException;
 import brut.util.ExtDataInput;
+import org.apache.commons.io.IOUtils;
+
+import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
 import java.io.*;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageTypeSpecifier;
 
-import org.apache.commons.io.IOUtils;
-
-/**
- * @author Ryszard Wiśniewski <brut.alll@gmail.com>
- */
 public class Res9patchStreamDecoder implements ResStreamDecoder {
     @Override
     public void decode(InputStream in, OutputStream out)
@@ -110,7 +106,7 @@ public class Res9patchStreamDecoder implements ResStreamDecoder {
                     int y = h - i;
                     im2.setRGB(w + 1, y, OI_COLOR);
                 }
-            } catch (CantFind9PatchChunk t) {
+            } catch (CantFind9PatchChunkException t) {
                 // This chunk might not exist
             }
 
@@ -147,7 +143,7 @@ public class Res9patchStreamDecoder implements ResStreamDecoder {
             try {
                 size = di.readInt();
             } catch (IOException ex) {
-                throw new CantFind9PatchChunk("Cant find nine patch chunk", ex);
+                throw new CantFind9PatchChunkException("Cant find nine patch chunk", ex);
             }
             if (di.readInt() == magic) {
                 return;

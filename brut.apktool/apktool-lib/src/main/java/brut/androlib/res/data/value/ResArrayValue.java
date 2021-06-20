@@ -20,17 +20,13 @@ import brut.androlib.AndrolibException;
 import brut.androlib.res.data.ResResource;
 import brut.androlib.res.xml.ResValuesXmlSerializable;
 import brut.util.Duo;
+import org.xmlpull.v1.XmlSerializer;
+
 import java.io.IOException;
 import java.util.Arrays;
 
-import org.xmlpull.v1.XmlSerializer;
-
-/**
- * @author Ryszard Wiśniewski <brut.alll@gmail.com>
- */
 public class ResArrayValue extends ResBagValue implements
         ResValuesXmlSerializable {
-    private String mRawItems;
 
     ResArrayValue(ResReferenceValue parent, Duo<Integer, ResScalarValue>[] items) {
         super(parent);
@@ -96,7 +92,7 @@ public class ResArrayValue extends ResBagValue implements
     }
 
     private final ResScalarValue[] mItems;
-    private final String AllowedArrayTypes[] = {"string", "integer"};
+    private final String[] AllowedArrayTypes = {"string", "integer"};
 
     public static final int BAG_KEY_ARRAY_START = 0x02000000;
 }

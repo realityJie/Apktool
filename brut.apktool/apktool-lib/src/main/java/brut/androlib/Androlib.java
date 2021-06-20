@@ -22,6 +22,9 @@ import brut.androlib.res.AndrolibResources;
 import brut.androlib.res.data.ResPackage;
 import brut.androlib.res.data.ResTable;
 import brut.androlib.res.data.ResUnknownFiles;
+import brut.common.InvalidUnknownFileException;
+import brut.common.RootUnknownFileException;
+import brut.common.TraversalUnknownFileException;
 import brut.directory.ExtFile;
 import brut.androlib.res.xml.ResXmlPatcher;
 import brut.androlib.src.SmaliBuilder;
@@ -42,9 +45,6 @@ import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 
-/**
- * @author Ryszard Wiśniewski <brut.alll@gmail.com>
- */
 public class Androlib {
     private final AndrolibResources mAndRes = new AndrolibResources();
     protected final ResUnknownFiles mResUnknownFiles = new ResUnknownFiles();
@@ -163,11 +163,13 @@ public class Androlib {
         try {
             Directory unk = apkFile.getDirectory();
             Set<String> files = unk.getFiles(true);
-            String ext;
 
             for (String file : files) {
-                if (isAPKFileNames(file) && unk.getCompressionLevel(file) == 0 && unk.getSize(file) != 0) {
-                    ext = FilenameUtils.getExtension(file);
+                if (isAPKFileNames(file) && unk.getCompressionLevel(file) == 0) {
+                    String ext = "";
+                    if (unk.getSize(file) != 0) {
+                        ext = FilenameUtils.getExtension(file);
+                    }
 
                     if (ext.isEmpty() || !NO_COMPRESS_PATTERN.matcher(ext).find()) {
                         ext = file;
@@ -466,7 +468,12 @@ public class Androlib {
                 LOGGER.info("Building resources...");
 
                 if (apkOptions.debugMode) {
-                    ResXmlPatcher.removeApplicationDebugTag(new File(appDir, "AndroidManifest.xml"));
+                    if (apkOptions.isAapt2()) {
+                        LOGGER.info("Using aapt2 - setting 'debuggable' attribute to 'true' in AndroidManifest.xml");
+                        ResXmlPatcher.setApplicationDebugTagTrue(new File(appDir, "AndroidManifest.xml"));
+                    } else {
+                        ResXmlPatcher.removeApplicationDebugTag(new File(appDir, "AndroidManifest.xml"));
+                    }
                 }
 
                 File apkFile = File.createTempFile("APKTOOL", null);
@@ -656,7 +663,15 @@ public class Androlib {
 
         // loop through unknown files
         for (Map.Entry<String,String> unknownFileInfo : files.entrySet()) {
-            File inputFile = new File(unknownFileDir, BrutIO.sanitizeUnknownFile(unknownFileDir, unknownFileInfo.getKey()));
+            File inputFile;
+
+            try {
+                inputFile = new File(unknownFileDir, BrutIO.sanitizeUnknownFile(unknownFileDir, unknownFileInfo.getKey()));
+            } catch (RootUnknownFileException | InvalidUnknownFileException | TraversalUnknownFileException exception) {
+                LOGGER.warning(String.format("Skipping file %s (%s)", unknownFileInfo.getKey(), exception.getMessage()));
+                continue;
+            }
+
             if (inputFile.isDirectory()) {
                 continue;
             }
@@ -705,6 +720,10 @@ public class Androlib {
     public void installFramework(File frameFile)
             throws AndrolibException {
         mAndRes.installFramework(frameFile);
+    }
+
+    public void listFrameworks() throws AndrolibException {
+        mAndRes.listFrameworkDirectory();
     }
 
     public void emptyFrameworkDirectory() throws AndrolibException {

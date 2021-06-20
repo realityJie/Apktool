@@ -18,7 +18,7 @@ package brut.androlib;
 
 import brut.androlib.err.InFileNotFoundException;
 import brut.androlib.err.OutDirExistsException;
-import brut.androlib.err.UndefinedResObject;
+import brut.androlib.err.UndefinedResObjectException;
 import brut.androlib.meta.MetaInfo;
 import brut.androlib.meta.PackageInfo;
 import brut.androlib.meta.UsesFramework;
@@ -38,9 +38,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.logging.Logger;
 
-/**
- * @author Ryszard Wiśniewski <brut.alll@gmail.com>
- */
 public class ApkDecoder {
     public ApkDecoder() {
         this(new Androlib());
@@ -231,7 +228,7 @@ public class ApkDecoder {
         }
     }
 
-    public void setTargetSdkVersion() throws AndrolibException, IOException {
+    public void setTargetSdkVersion() throws AndrolibException {
         if (mResTable == null) {
             mResTable = mAndrolib.getResTable(mApkFile);
         }
@@ -250,7 +247,7 @@ public class ApkDecoder {
         mForceDelete = forceDelete;
     }
 
-    public void setFrameworkTag(String tag) throws AndrolibException {
+    public void setFrameworkTag(String tag) {
         mAndrolib.apkOptions.frameworkTag = tag;
     }
 
@@ -416,7 +413,7 @@ public class ApkDecoder {
         int id = getResTable().getPackageId();
         try {
             id = getResTable().getPackage(renamed).getId();
-        } catch (UndefinedResObject ignored) {}
+        } catch (UndefinedResObjectException ignored) {}
 
         if (Strings.isNullOrEmpty(original)) {
             return;
@@ -440,21 +437,21 @@ public class ApkDecoder {
         meta.versionInfo = info;
     }
 
-    private void putUnknownInfo(MetaInfo meta) throws AndrolibException {
+    private void putUnknownInfo(MetaInfo meta) {
         meta.unknownFiles = mAndrolib.mResUnknownFiles.getUnknownFiles();
     }
 
-    private void putFileCompressionInfo(MetaInfo meta) throws AndrolibException {
+    private void putFileCompressionInfo(MetaInfo meta) {
         if (mUncompressedFiles != null && !mUncompressedFiles.isEmpty()) {
             meta.doNotCompress = mUncompressedFiles;
         }
     }
 
-    private void putSparseResourcesInfo(MetaInfo meta) throws AndrolibException {
+    private void putSparseResourcesInfo(MetaInfo meta) {
         meta.sparseResources = mResTable.getSparseResources();
     }
 
-    private void putSharedLibraryInfo(MetaInfo meta) throws AndrolibException {
+    private void putSharedLibraryInfo(MetaInfo meta) {
         meta.sharedLibrary = mResTable.getSharedLibrary();
     }
 

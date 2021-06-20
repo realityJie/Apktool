@@ -18,19 +18,12 @@ package brut.androlib.res.data.value;
 
 import brut.androlib.AndrolibException;
 
-/**
- * @author Ryszard Wiśniewski <brut.alll@gmail.com>
- */
 public class ResFileValue extends ResIntBasedValue {
     private final String mPath;
 
     public ResFileValue(String path, int rawIntValue) {
         super(rawIntValue);
         this.mPath = path;
-    }
-
-    public String getPath() {
-        return mPath;
     }
 
     public String getStrippedPath() throws AndrolibException {

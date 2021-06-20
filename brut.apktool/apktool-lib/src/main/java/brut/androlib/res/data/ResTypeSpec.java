@@ -17,12 +17,9 @@
 package brut.androlib.res.data;
 
 import brut.androlib.AndrolibException;
-import brut.androlib.err.UndefinedResObject;
+import brut.androlib.err.UndefinedResObjectException;
 import java.util.*;
 
-/**
- * @author Ryszard Wiśniewski <brut.alll@gmail.com>
- */
 public final class ResTypeSpec {
 
     public static final String RES_TYPE_NAME_ARRAY = "array";
@@ -55,22 +52,14 @@ public final class ResTypeSpec {
         return mId;
     }
 
-    public int getEntryCount() {
-        return mEntryCount;
-    }
-
     public boolean isString() {
         return mName.equalsIgnoreCase("string");
-    }
-
-    public Set<ResResSpec> listResSpecs() {
-        return new LinkedHashSet<ResResSpec>(mResSpecs.values());
     }
 
     public ResResSpec getResSpec(String name) throws AndrolibException {
         ResResSpec spec = getResSpecUnsafe(name);
         if (spec == null) {
-            throw new UndefinedResObject(String.format("resource spec: %s/%s", getName(), name));
+            throw new UndefinedResObjectException(String.format("resource spec: %s/%s", getName(), name));
         }
         return spec;
     }
@@ -79,7 +68,7 @@ public final class ResTypeSpec {
         return mResSpecs.get(name);
     }
 
-    public void removeResSpec(ResResSpec spec) throws AndrolibException {
+    public void removeResSpec(ResResSpec spec) {
         mResSpecs.remove(spec.getName());
     }
 

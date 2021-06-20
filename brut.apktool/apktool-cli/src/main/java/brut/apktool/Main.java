@@ -23,16 +23,13 @@ import brut.androlib.err.OutDirExistsException;
 import brut.common.BrutException;
 import brut.directory.DirectoryException;
 import brut.util.AaptManager;
+import brut.util.OSDetection;
 import org.apache.commons.cli.*;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.logging.*;
 
-/**
- * @author Ryszard Wiśniewski <brut.alll@gmail.com>
- * @author Connor Tumbleson <connor.tumbleson@gmail.com>
- */
 public class Main {
     public static void main(String[] args) throws IOException, InterruptedException, BrutException {
 
@@ -51,9 +48,14 @@ public class Main {
 
         try {
             commandLine = parser.parse(allOptions, args, false);
+
+            if (! OSDetection.is64Bit()) {
+                System.err.println("32 bit support is deprecated. Apktool will not support 32bit on v2.6.0.");
+            }
         } catch (ParseException ex) {
             System.err.println(ex.getMessage());
             usage();
+            System.exit(1);
             return;
         }
 
@@ -67,7 +69,7 @@ public class Main {
 
         // check for advance mode
         if (commandLine.hasOption("advance") || commandLine.hasOption("advanced")) {
-            setAdvanceMode(true);
+            setAdvanceMode();
         }
 
         boolean cmdFound = false;
@@ -83,6 +85,9 @@ public class Main {
                 cmdFound = true;
             } else if (opt.equalsIgnoreCase("empty-framework-dir")) {
                 cmdEmptyFrameworkDirectory(commandLine);
+                cmdFound = true;
+            } else if (opt.equalsIgnoreCase("list-frameworks")) {
+                cmdListFrameworks(commandLine);
                 cmdFound = true;
             } else if (opt.equalsIgnoreCase("publicize-resources")) {
                 cmdPublicizeResources(commandLine);
@@ -209,7 +214,6 @@ public class Main {
             apkOptions.forceBuildAll = true;
         }
         if (cli.hasOption("d") || cli.hasOption("debug")) {
-            System.out.println("SmaliDebugging has been removed in 2.1.0 onward. Please see: https://github.com/iBotPeaches/Apktool/issues/1061");
             apkOptions.debugMode = true;
         }
         if (cli.hasOption("v") || cli.hasOption("verbose")) {
@@ -219,7 +223,7 @@ public class Main {
             apkOptions.aaptPath = cli.getOptionValue("a");
         }
         if (cli.hasOption("c") || cli.hasOption("copy-original")) {
-            System.err.println("-c/--copy-original has been deprecated. Removal planned for v2.5.0 (#2129)");
+            System.err.println("-c/--copy-original has been deprecated. Removal planned for v2.6.0 (#2129)");
             apkOptions.copyOriginalFiles = true;
         }
         if (cli.hasOption("p") || cli.hasOption("frame-path")) {
@@ -267,6 +271,15 @@ public class Main {
             apkOptions.frameworkTag = cli.getOptionValue("t");
         }
         new Androlib(apkOptions).installFramework(new File(apkName));
+    }
+
+    private static void cmdListFrameworks(CommandLine cli) throws AndrolibException {
+        ApkOptions apkOptions = new ApkOptions();
+        if (cli.hasOption("p") || cli.hasOption("frame-path")) {
+            apkOptions.frameworkFolderLocation = cli.getOptionValue("p");
+        }
+
+        new Androlib(apkOptions).listFrameworks();
     }
 
     private static void cmdPublicizeResources(CommandLine cli) throws AndrolibException {
@@ -492,6 +505,9 @@ public class Main {
         emptyFrameworkOptions.addOption(forceDecOption);
         emptyFrameworkOptions.addOption(frameIfDirOption);
 
+        // add list framework options
+        listFrameworkOptions.addOption(frameIfDirOption);
+
         // add all, loop existing cats then manually add advance
         for (Object op : normalOptions.getOptions()) {
             allOptions.addOption((Option)op);
@@ -540,10 +556,10 @@ public class Main {
                 "Apktool v" + Androlib.getVersion() + " - a tool for reengineering Android apk files\n" +
                         "with smali v" + ApktoolProperties.get("smaliVersion") +
                         " and baksmali v" + ApktoolProperties.get("baksmaliVersion") + "\n" +
-                        "Copyright 2014 Ryszard Wiśniewski <brut.alll@gmail.com>\n" +
-                        "Updated by Connor Tumbleson <connor.tumbleson@gmail.com>" );
+                        "Copyright 2010 Ryszard Wiśniewski <brut.alll@gmail.com>\n" +
+                        "Copyright 2010 Connor Tumbleson <connor.tumbleson@gmail.com>" );
         if (isAdvanceMode()) {
-            System.out.println("Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)\n");
+            System.out.println("Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0)\n");
         }else {
             System.out.println("");
         }
@@ -556,6 +572,7 @@ public class Main {
         if (isAdvanceMode()) {
             formatter.printHelp("apktool " + verbosityHelp() + "publicize-resources <file_path>", emptyOptions);
             formatter.printHelp("apktool " + verbosityHelp() + "empty-framework-dir [options]", emptyFrameworkOptions);
+            formatter.printHelp("apktool " + verbosityHelp() + "list-frameworks [options]", listFrameworkOptions);
             System.out.println("");
         } else {
             System.out.println("");
@@ -563,7 +580,7 @@ public class Main {
 
         // print out more information
         System.out.println(
-                "For additional info, see: http://ibotpeaches.github.io/Apktool/ \n"
+                "For additional info, see: https://ibotpeaches.github.io/Apktool/ \n"
                         + "For smali/baksmali info, see: https://github.com/JesusFreke/smali");
     }
 
@@ -629,8 +646,8 @@ public class Main {
         return advanceMode;
     }
 
-    private static void setAdvanceMode(boolean advanceMode) {
-        Main.advanceMode = advanceMode;
+    private static void setAdvanceMode() {
+        Main.advanceMode = true;
     }
 
     private enum Verbosity {
@@ -646,6 +663,7 @@ public class Main {
     private final static Options allOptions;
     private final static Options emptyOptions;
     private final static Options emptyFrameworkOptions;
+    private final static Options listFrameworkOptions;
 
     static {
         //normal and advance usage output
@@ -656,5 +674,6 @@ public class Main {
         allOptions = new Options();
         emptyOptions = new Options();
         emptyFrameworkOptions = new Options();
+        listFrameworkOptions = new Options();
     }
 }

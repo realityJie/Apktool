@@ -18,27 +18,22 @@ package brut.androlib.res.decoder;
 
 import brut.androlib.res.xml.ResXmlEncoders;
 import brut.util.ExtDataInput;
+import com.google.common.annotations.VisibleForTesting;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.*;
-import java.util.Arrays;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- * @author Ryszard Wiśniewski <brut.alll@gmail.com>
- * @author Dmitry Skiba
- *
- *         Block of strings, used in binary xml and arsc.
- *
- *         TODO: - implement get()
- *
- */
 public class StringBlock {
 
     /**
      * Reads whole (including chunk type) string block from stream. Stream must
      * be at the chunk type.
+     * @param reader ExtDataInput
+     * @return StringBlock
+     *
+     * @throws IOException Parsing resources.arsc error
      */
     public static StringBlock read(ExtDataInput reader) throws IOException {
         reader.skipCheckChunkTypeInt(CHUNK_STRINGPOOL_TYPE, CHUNK_NULL_TYPE);
@@ -54,8 +49,6 @@ public class StringBlock {
         StringBlock block = new StringBlock();
         block.m_isUTF8 = (flags & UTF8_FLAG) != 0;
         block.m_stringOffsets = reader.readIntArray(stringCount);
-        block.m_stringOwns = new int[stringCount];
-        Arrays.fill(block.m_stringOwns, -1);
 
         if (styleCount != 0) {
             block.m_styleOffsets = reader.readIntArray(styleCount);
@@ -82,14 +75,9 @@ public class StringBlock {
     }
 
     /**
-     * Returns number of strings in block.
-     */
-    public int getCount() {
-        return m_stringOffsets != null ? m_stringOffsets.length : 0;
-    }
-
-    /**
      * Returns raw string (without any styling information) at specified index.
+     * @param index int
+     * @return String
      */
     public String getString(int index) {
         if (index < 0 || m_stringOffsets == null || index >= m_stringOffsets.length) {
@@ -98,34 +86,27 @@ public class StringBlock {
         int offset = m_stringOffsets[index];
         int length;
 
+        int[] val;
         if (m_isUTF8) {
-            int[] val = getUtf8(m_strings, offset);
+            val = getUtf8(m_strings, offset);
             offset = val[0];
-            length = val[1];
         } else {
-            int[] val = getUtf16(m_strings, offset);
+            val = getUtf16(m_strings, offset);
             offset += val[0];
-            length = val[1];
         }
+        length = val[1];
         return decodeString(offset, length);
     }
 
     /**
-     * Not yet implemented.
-     *
-     * Returns string with style information (if any).
-     */
-    public CharSequence get(int index) {
-        return getString(index);
-    }
-
-    /**
      * Returns string with style tags (html-like).
+     * @param index int
+     * @return String
      */
     public String getHTML(int index) {
         String raw = getString(index);
         if (raw == null) {
-            return raw;
+            return null;
         }
         int[] style = getStyle(index);
         if (style == null) {
@@ -230,6 +211,9 @@ public class StringBlock {
 
     /**
      * Finds index of the string. Returns -1 if the string was not found.
+     *
+     * @param string String to index location of
+     * @return int (Returns -1 if not found)
      */
     public int find(String string) {
         if (string == null) {
@@ -258,6 +242,12 @@ public class StringBlock {
     private StringBlock() {
     }
 
+    @VisibleForTesting
+    StringBlock(byte[] strings, boolean isUTF8) {
+        m_strings = strings;
+        m_isUTF8 = isUTF8;
+    }
+
     /**
      * Returns style information - array of int triplets, where in each triplet:
      * * first int is index of tag name ('b','i', etc.) * second int is tag
@@ -268,20 +258,21 @@ public class StringBlock {
             return null;
         }
         int offset = m_styleOffsets[index] / 4;
-        int style[];
-        {
-            int count = 0;
-            for (int i = offset; i < m_styles.length; ++i) {
-                if (m_styles[i] == -1) {
-                    break;
-                }
-                count += 1;
+        int count = 0;
+        int[] style;
+
+        for (int i = offset; i < m_styles.length; ++i) {
+            if (m_styles[i] == -1) {
+                break;
             }
-            if (count == 0 || (count % 3) != 0) {
-                return null;
-            }
-            style = new int[count];
+            count += 1;
         }
+
+        if (count == 0 || (count % 3) != 0) {
+            return null;
+        }
+        style = new int[count];
+
         for (int i = offset, j = 0; i < m_styles.length;) {
             if (m_styles[i] == -1) {
                 break;
@@ -291,26 +282,31 @@ public class StringBlock {
         return style;
     }
 
-    private String decodeString(int offset, int length) {
+    @VisibleForTesting
+    String decodeString(int offset, int length) {
         try {
-            return (m_isUTF8 ? UTF8_DECODER : UTF16LE_DECODER).decode(
-                    ByteBuffer.wrap(m_strings, offset, length)).toString();
+            final ByteBuffer wrappedBuffer = ByteBuffer.wrap(m_strings, offset, length);
+            return (m_isUTF8 ? UTF8_DECODER : UTF16LE_DECODER).decode(wrappedBuffer).toString();
         } catch (CharacterCodingException ex) {
+            if (!m_isUTF8) {
+                LOGGER.warning("Failed to decode a string at offset " + offset + " of length " + length);
+                return null;
+            }
+        }
+
+        try {
+            final ByteBuffer wrappedBufferRetry = ByteBuffer.wrap(m_strings, offset, length);
+            // in some places, Android uses 3-byte UTF-8 sequences instead of 4-bytes.
+            // If decoding failed, we try to use CESU-8 decoder, which is closer to what Android actually uses.
+            return CESU8_DECODER.decode(wrappedBufferRetry).toString();
+        } catch (CharacterCodingException e) {
+            LOGGER.warning("Failed to decode a string with CESU-8 decoder.");
             return null;
         }
     }
 
     private static final int getShort(byte[] array, int offset) {
         return (array[offset + 1] & 0xff) << 8 | array[offset] & 0xff;
-    }
-
-    private static final int getShort(int[] array, int offset) {
-        int value = array[offset / 4];
-        if ((offset % 4) / 2 == 0) {
-            return (value & 0xFFFF);
-        } else {
-            return (value >>> 16);
-        }
     }
 
     private static final int[] getUtf8(byte[] array, int offset) {
@@ -353,10 +349,10 @@ public class StringBlock {
     private int[] m_styleOffsets;
     private int[] m_styles;
     private boolean m_isUTF8;
-    private int[] m_stringOwns;
 
     private final CharsetDecoder UTF16LE_DECODER = Charset.forName("UTF-16LE").newDecoder();
     private final CharsetDecoder UTF8_DECODER = Charset.forName("UTF-8").newDecoder();
+    private final CharsetDecoder CESU8_DECODER = Charset.forName("CESU8").newDecoder();
     private static final Logger LOGGER = Logger.getLogger(StringBlock.class.getName());
 
     // ResChunk_header = header.type (0x0001) + header.headerSize (0x001C)

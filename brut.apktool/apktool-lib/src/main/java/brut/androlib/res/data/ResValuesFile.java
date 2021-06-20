@@ -19,9 +19,6 @@ package brut.androlib.res.data;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-/**
- * @author Ryszard Wiśniewski <brut.alll@gmail.com>
- */
 public class ResValuesFile {
     private final ResPackage mPackage;
     private final ResTypeSpec mType;
@@ -46,10 +43,6 @@ public class ResValuesFile {
 
     public ResTypeSpec getType() {
         return mType;
-    }
-
-    public ResType getConfig() {
-        return mConfig;
     }
 
     public boolean isSynthesized(ResResource res) {

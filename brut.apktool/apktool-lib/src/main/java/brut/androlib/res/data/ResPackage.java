@@ -17,7 +17,7 @@
 package brut.androlib.res.data;
 
 import brut.androlib.AndrolibException;
-import brut.androlib.err.UndefinedResObject;
+import brut.androlib.err.UndefinedResObjectException;
 import brut.androlib.res.data.value.ResFileValue;
 import brut.androlib.res.data.value.ResValueFactory;
 import brut.androlib.res.xml.ResValuesXmlSerializable;
@@ -25,9 +25,6 @@ import brut.util.Duo;
 import java.util.*;
 import java.util.logging.Logger;
 
-/**
- * @author Ryszard Wiśniewski <brut.alll@gmail.com>
- */
 public class ResPackage {
     private final ResTable mResTable;
     private final int mId;
@@ -53,35 +50,19 @@ public class ResPackage {
         return mResSpecs.containsKey(resID);
     }
 
-    public ResResSpec getResSpec(ResID resID) throws UndefinedResObject {
+    public ResResSpec getResSpec(ResID resID) throws UndefinedResObjectException {
         ResResSpec spec = mResSpecs.get(resID);
         if (spec == null) {
-            throw new UndefinedResObject("resource spec: " + resID.toString());
+            throw new UndefinedResObjectException("resource spec: " + resID.toString());
         }
         return spec;
-    }
-
-    public List<ResType> getConfigs() {
-        return new ArrayList<ResType>(mConfigs.values());
-    }
-
-    public boolean hasConfig(ResConfigFlags flags) {
-        return mConfigs.containsKey(flags);
-    }
-
-    public ResType getConfig(ResConfigFlags flags) throws AndrolibException {
-        ResType config = mConfigs.get(flags);
-        if (config == null) {
-            throw new UndefinedResObject("config: " + flags);
-        }
-        return config;
     }
 
     public int getResSpecCount() {
         return mResSpecs.size();
     }
 
-    public ResType getOrCreateConfig(ResConfigFlags flags) throws AndrolibException {
+    public ResType getOrCreateConfig(ResConfigFlags flags) {
         ResType config = mConfigs.get(flags);
         if (config == null) {
             config = new ResType(flags);
@@ -90,18 +71,10 @@ public class ResPackage {
         return config;
     }
 
-    public List<ResTypeSpec> listTypes() {
-        return new ArrayList<ResTypeSpec>(mTypes.values());
-    }
-
-    public boolean hasType(String typeName) {
-        return mTypes.containsKey(typeName);
-    }
-
     public ResTypeSpec getType(String typeName) throws AndrolibException {
         ResTypeSpec type = mTypes.get(typeName);
         if (type == null) {
-            throw new UndefinedResObject("type: " + typeName);
+            throw new UndefinedResObjectException("type: " + typeName);
         }
         return type;
     }
@@ -154,7 +127,7 @@ public class ResPackage {
         return mSynthesizedRes.contains(resId);
     }
 
-    public void removeResSpec(ResResSpec spec) throws AndrolibException {
+    public void removeResSpec(ResResSpec spec) {
         mResSpecs.remove(spec.getId());
     }
 
@@ -164,24 +137,12 @@ public class ResPackage {
         }
     }
 
-    public void addConfig(ResType config) throws AndrolibException {
-        if (mConfigs.put(config.getFlags(), config) != null) {
-            throw new AndrolibException("Multiple configs: " + config);
-        }
-    }
-
-    public void addType(ResTypeSpec type) throws AndrolibException {
+    public void addType(ResTypeSpec type) {
         if (mTypes.containsKey(type.getName())) {
             LOGGER.warning("Multiple types detected! " + type + " ignored!");
         } else {
             mTypes.put(type.getName(), type);
         }
-    }
-
-    public void addResource(ResResource res) {
-    }
-
-    public void removeResource(ResResource res) {
     }
 
     public void addSynthesizedRes(int resId) {

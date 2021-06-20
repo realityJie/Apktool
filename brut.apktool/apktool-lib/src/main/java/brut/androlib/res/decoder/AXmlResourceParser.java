@@ -23,28 +23,24 @@ import brut.androlib.res.data.ResID;
 import brut.androlib.res.xml.ResXmlEncoders;
 import brut.util.ExtDataInput;
 import com.google.common.io.LittleEndianDataInputStream;
+import org.xmlpull.v1.XmlPullParserException;
 import java.io.DataInput;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.xmlpull.v1.XmlPullParserException;
 
 /**
- * @author Ryszard Wiśniewski <brut.alll@gmail.com>
- * @author Dmitry Skiba
+ * Binary xml files parser.
  *
- *         Binary xml files parser.
+ * Parser has only two states: (1) Operational state, which parser
+ * obtains after first successful call to next() and retains until
+ * open(), close(), or failed call to next(). (2) Closed state, which
+ * parser obtains after open(), close(), or failed call to next(). In
+ * this state methods return invalid values or throw exceptions.
  *
- *         Parser has only two states: (1) Operational state, which parser
- *         obtains after first successful call to next() and retains until
- *         open(), close(), or failed call to next(). (2) Closed state, which
- *         parser obtains after open(), close(), or failed call to next(). In
- *         this state methods return invalid values or throw exceptions.
- *
- *         TODO: * check all methods in closed state
- *
+ * TODO: * check all methods in closed state
  */
 public class AXmlResourceParser implements XmlResourceParser {
 
@@ -214,18 +210,18 @@ public class AXmlResourceParser implements XmlResourceParser {
     }
 
     @Override
-    public int getNamespaceCount(int depth) throws XmlPullParserException {
+    public int getNamespaceCount(int depth) {
         return m_namespaces.getAccumulatedCount(depth);
     }
 
     @Override
-    public String getNamespacePrefix(int pos) throws XmlPullParserException {
+    public String getNamespacePrefix(int pos) {
         int prefix = m_namespaces.getPrefix(pos);
         return m_strings.getString(prefix);
     }
 
     @Override
-    public String getNamespaceUri(int pos) throws XmlPullParserException {
+    public String getNamespaceUri(int pos) {
         int uri = m_namespaces.getUri(pos);
         return m_strings.getString(uri);
     }
@@ -296,7 +292,7 @@ public class AXmlResourceParser implements XmlResourceParser {
         if (value.length() == 0) {
             ResID resourceId = new ResID(getAttributeNameResource(index));
             if (resourceId.package_ == PRIVATE_PKG_ID) {
-                value = getNonDefaultNamespaceUri();
+                value = getNonDefaultNamespaceUri(offset);
             } else {
                 value = android_ns;
             }
@@ -305,15 +301,19 @@ public class AXmlResourceParser implements XmlResourceParser {
         return value;
     }
 
-    private String getNonDefaultNamespaceUri() {
-        int offset = m_namespaces.getCurrentCount() + 1;
-        String prefix = m_strings.getString(m_namespaces.get(offset, true));
-
-        if (! prefix.equalsIgnoreCase("android")) {
-            return  m_strings.getString(m_namespaces.get(offset, false));
+    private String getNonDefaultNamespaceUri(int offset) {
+        String prefix = m_strings.getString(m_namespaces.getPrefix(offset));
+        if (prefix != null) {
+            return  m_strings.getString(m_namespaces.getUri(offset));
         }
 
-        return android_ns;
+        // If we are here. There is some clever obfuscation going on. Our reference points to the namespace are gone.
+        // Normally we could take the index * attributeCount to get an offset.
+        // That would point to the URI in the StringBlock table, but that is empty.
+        // We have the namespaces that can't be touched in the opening tag.
+        // Though no known way to correlate them at this time.
+        // So return the res-auto namespace.
+        return "http://schemas.android.com/apk/res-auto";
     }
 
     @Override
@@ -339,15 +339,15 @@ public class AXmlResourceParser implements XmlResourceParser {
 
         // some attributes will return "", we must rely on the resource_id and refer to the frameworks
         // to match the resource id to the name. ex: 0x101021C = versionName
-        if (value.length() != 0 && !android_ns.equals(getAttributeNamespace(index))) {
-            return value;
-        } else {
+        if (value.length() == 0 || android_ns.equals(getAttributeNamespace(index))) {
             try {
-                value = mAttrDecoder.decodeManifestAttr(getAttributeNameResource(index));
-            } catch (AndrolibException e) {
-            }
-            return value;
+                int resourceId = getAttributeNameResource(index);
+                if (resourceId != 0) {
+                    value = mAttrDecoder.decodeManifestAttr(getAttributeNameResource(index));
+                }
+            } catch (AndrolibException | NullPointerException e) { }
         }
+        return value;
     }
 
     @Override
@@ -517,8 +517,7 @@ public class AXmlResourceParser implements XmlResourceParser {
 
     // ///////////////////////////////// dummies
     @Override
-    public void setInput(InputStream stream, String inputEncoding)
-            throws XmlPullParserException {
+    public void setInput(InputStream stream, String inputEncoding) {
         open(stream);
     }
 
@@ -538,12 +537,12 @@ public class AXmlResourceParser implements XmlResourceParser {
     }
 
     @Override
-    public boolean isEmptyElementTag() throws XmlPullParserException {
+    public boolean isEmptyElementTag() {
         return false;
     }
 
     @Override
-    public boolean isWhitespace() throws XmlPullParserException {
+    public boolean isWhitespace() {
         return false;
     }
 
@@ -604,12 +603,7 @@ public class AXmlResourceParser implements XmlResourceParser {
 
         public final void reset() {
             m_dataLength = 0;
-            m_count = 0;
             m_depth = 0;
-        }
-
-        public final int getTotalCount() {
-            return m_count;
         }
 
         public final int getCurrentCount() {
@@ -649,35 +643,6 @@ public class AXmlResourceParser implements XmlResourceParser {
             m_data[offset + 1] = uri;
             m_data[offset + 2] = count + 1;
             m_dataLength += 2;
-            m_count += 1;
-        }
-
-        public final boolean pop(int prefix, int uri) {
-            if (m_dataLength == 0) {
-                return false;
-            }
-            int offset = m_dataLength - 1;
-            int count = m_data[offset];
-            for (int i = 0, o = offset - 2; i != count; ++i, o -= 2) {
-                if (m_data[o] != prefix || m_data[o + 1] != uri) {
-                    continue;
-                }
-                count -= 1;
-                if (i == 0) {
-                    m_data[o] = count;
-                    o -= (1 + count * 2);
-                    m_data[o] = count;
-                } else {
-                    m_data[offset] = count;
-                    offset -= (1 + 2 + count * 2);
-                    m_data[offset] = count;
-                    System.arraycopy(m_data, o + 2, m_data, o, m_dataLength - o);
-                }
-                m_dataLength -= 2;
-                m_count -= 1;
-                return true;
-            }
-            return false;
         }
 
         public final boolean pop() {
@@ -695,7 +660,6 @@ public class AXmlResourceParser implements XmlResourceParser {
             offset -= (1 + count * 2);
             m_data[offset] = count;
             m_dataLength -= 2;
-            m_count -= 1;
             return true;
         }
 
@@ -709,10 +673,6 @@ public class AXmlResourceParser implements XmlResourceParser {
 
         public final int findPrefix(int uri) {
             return find(uri, false);
-        }
-
-        public final int findUri(int prefix) {
-            return find(prefix, true);
         }
 
         public final int getDepth() {
@@ -738,7 +698,6 @@ public class AXmlResourceParser implements XmlResourceParser {
                 return;
             }
             m_dataLength -= 2 + count * 2;
-            m_count -= count;
             m_depth -= 1;
         }
 
@@ -800,12 +759,7 @@ public class AXmlResourceParser implements XmlResourceParser {
 
         private int[] m_data;
         private int m_dataLength;
-        private int m_count;
         private int m_depth;
-    }
-
-    final StringBlock getStrings() {
-        return m_strings;
     }
 
     private final int getAttributeOffset(int index) {
@@ -985,7 +939,7 @@ public class AXmlResourceParser implements XmlResourceParser {
     private StringBlock m_strings;
     private int[] m_resourceIDs;
     private NamespaceStack m_namespaces = new NamespaceStack();
-    private String android_ns = "http://schemas.android.com/apk/res/android";
+    private final String android_ns = "http://schemas.android.com/apk/res/android";
     private boolean m_decreaseDepth;
     private int m_event;
     private int m_lineNumber;
